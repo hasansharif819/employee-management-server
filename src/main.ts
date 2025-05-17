@@ -27,10 +27,14 @@ async function bootstrap() {
 
   // ====== Enable CORS, set global prefix, and add validation pipe for request data ======
   app.enableCors({
-    origin: [process.env.FRONTEND_URL, 'http://localhost:3000'], // Replace with your frontend's URL
+    origin: [
+      'http://localhost:5173',
+      // process.env.FRONTEND_URL,
+      // 'http://localhost:3000',
+    ],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
-    credentials: true, // Enable cookies and credentials
+    credentials: true,
   });
   app.setGlobalPrefix('api');
   app.useGlobalPipes(
