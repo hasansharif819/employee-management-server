@@ -167,7 +167,7 @@ $ cd employee-management-server
 $ npm install
 $ npx prisma generate
 $ npx prisma migrate deploy
-# npm run build
+$ npm run build
 ```
 
 ## 7. Run with PM2
