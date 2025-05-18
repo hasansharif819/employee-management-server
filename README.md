@@ -28,7 +28,17 @@
 ## Project setup
 
 ```bash
+$ git clone https://github.com/hasansharif819/employee-management-server
+$ cd employee-management-server
 $ npm install
+```
+## Copy the .env.example to .env file nad provide the database_url and others
+
+## Prisma setup
+```bash
+$ npx prisma init
+$ npx prisma migrate dev --name
+$ npx prisma generate
 ```
 
 ## Compile and run the project
@@ -44,55 +54,174 @@ $ npm run start:dev
 $ npm run start:prod
 ```
 
+# Testing Setup & Strategy
+## Test Framework & Setup
+
+* NestJS uses Jest by default for testing.
+* Install Required Dev Dependencies
+
+```bash
+$ npm install --save-dev jest @nestjs/testing ts-jest @types/jest
+```
+
+* jest.config.ts
+
+  export default {
+    moduleFileExtensions: ['js', 'json', 'ts'],
+    rootDir: 'src',
+    testRegex: '.*\\.spec\\.ts$',
+    transform: {
+      '^.+\\.ts$': 'ts-jest',
+    },
+    collectCoverageFrom: ['**/*.(t|j)s'],
+    coverageDirectory: '../coverage',
+    testEnvironment: 'node',
+  };
+
+* package.json
+
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch"
+  }
+
+# Example 
+describe('AuthService', () => {
+  let service: AuthService;
+
+  beforeEach(async () => {
+    const module = await Test.createTestingModule({
+      providers: [
+        AuthService,
+        { provide: JwtService, useValue: { sign: jest.fn(() => 'mockToken') } },
+      ],
+    }).compile();
+
+    service = module.get<AuthService>(AuthService);
+  });
+
+  it('should return JWT token', () => {
+    const token = service.generateToken({ id: 1 });
+    expect(token).toBe('mockToken');
+  });
+});
+
+# Folder Structure
+src/
+  auth/
+  modules/
+test/
+  app.e2e-spec.ts
+  jest-e2e.json
+jest.config.ts
+.env.test
+
 ## Run tests
 
 ```bash
 # unit tests
 $ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
 ```
 
-## Deployment
+# Deployment on AWS
+## Use EC2 (Virtual Machine)
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+## 1. Set Up AWS EC2
+ * Create EC2 Ubuntu instance
+## 2. Install Dependencies on EC2
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+$ sudo npm install -g pm2 prisma
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+```bash
+$ sudo apt update
+$ sudo apt install nodejs npm git postgresql -y
+$ curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+$ sudo apt-get install -y nodejs
+```
 
-## Resources
+## 3. Install PM2 & Prisma CLI globally
 
-Check out a few resources that may come in handy when working with NestJS:
+```bash
+$ sudo npm install -g pm2 prisma
+```
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+## 4. Clone Your Project
 
-## Support
+```bash
+$ git clone https://github.com/hasansharif819/employee-management-server
+$ cd employee-management-server
+```
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+## 5. Set Environment Variables
+## Create .env file
 
-## Stay in touch
+* DATABASE_URL=postgresql://user:pass@localhost:5432/yourdb
+* JWT_SECRET=your-secret
+* PORT=3000
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+## 6. Install & Build
 
-## License
+```bash
+$ npm install
+$ npx prisma generate
+$ npx prisma migrate deploy
+# npm run build
+```
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+## 7. Run with PM2
+
+```bash
+$ pm2 start dist/main.js --name nest-api
+$ pm2 startup
+$ pm2 save
+```
+
+## 8. Use NGINX as Reverse Proxy
+
+```bash
+$ sudo apt install nginx
+```
+
+* Create config:
+
+```bash
+$ sudo nano /etc/nginx/sites-available/default
+```
+
+server {
+    listen 80;
+    server_name your-domain.com;
+
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+
+## 9. Restart:
+
+```bash
+$ sudo systemctl restart nginx
+```
+
+## 10. Use HTTPS
+
+```bash
+$ sudo apt install certbot python3-certbot-nginx -y
+$ sudo certbot --nginx -d your-domain.com
+```
+
+## 11. Logs with Winston
+* Make sure Winston writes logs to /var/log/nestjs/
+
+```bash
+$ new winston.transports.File({ filename: 'error.log', level: 'error' }),
+$ new winston.transports.File({ filename: 'combined.log' })
+```
+## Then, use tail -f error.log to view logs.
