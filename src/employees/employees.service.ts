@@ -1,95 +1,40 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
+
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { EmployeeRepository } from './employees.repository';
+import { EmployeeEntity } from './employees.entity';
 
 @Injectable()
 export class EmployeesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly repo: EmployeeRepository) {}
 
-  async findAll() {
-    return this.prisma.employee.findMany({
-      select: {
-        name: true,
-        email: true,
-        position: true,
-        employees: {
-          select: {
-            name: true,
-            email: true,
-            position: true,
-          },
-        },
-      },
-    });
+  async findAll(): Promise<Partial<EmployeeEntity>[]> {
+    const result = await this.repo.findAllBasic();
+    return result.map(EmployeeEntity.fromPrisma);
   }
 
-  async findOne(id: number): Promise<any> {
-    const employee = await this.prisma.employee.findUnique({
-      where: { id },
-      select: {
-        id: true, // Required for recursive calls
-        name: true,
-        email: true,
-        position: true,
-        createdAt: true,
-        employees: {
-          select: {
-            id: true, // Required for nested recursion
-          },
-        },
-      },
-    });
-
-    if (!employee) return null;
-
-    // Recursively fetch nested employees
-    const subordinates = await Promise.all(
-      employee.employees.map(async (sub) => await this.findOne(sub.id)),
-    );
-
-    return {
-      id: employee.id,
-      name: employee.name,
-      email: employee.email,
-      position: employee.position,
-      createdAt: employee.createdAt,
-      employees: subordinates,
-    };
+  async findOne(id: number): Promise<EmployeeEntity | null> {
+    return this.buildRecursiveTree(id, (id) => this.findOne(id));
   }
 
-  async protectedFindOneById(id: number): Promise<any> {
-    const employee = await this.prisma.employee.findUnique({
-      where: { id },
-      select: {
-        id: true, // Required for recursive calls
-        name: true,
-        email: true,
-        position: true,
-        createdAt: true,
-        employees: {
-          select: {
-            id: true, // Required for nested recursion
-          },
-        },
-      },
-    });
+  async protectedFindOneById(id: number): Promise<EmployeeEntity | null> {
+    return this.buildRecursiveTree(id, (id) => this.protectedFindOneById(id));
+  }
 
-    if (!employee) return null;
+  private async buildRecursiveTree(
+    id: number,
+    recursiveFn: (id: number) => Promise<EmployeeEntity | null>,
+  ): Promise<EmployeeEntity | null> {
+    const employeeData = await this.repo.findByIdWithSubordinates(id);
+    if (!employeeData) return null;
 
-    // Recursively fetch nested employees
     const subordinates = await Promise.all(
-      employee.employees.map(
-        async (sub) => await this.protectedFindOneById(sub.id),
-      ),
+      employeeData.employees.map((e) => recursiveFn(e.id)),
     );
 
-    return {
-      id: employee.id,
-      name: employee.name,
-      email: employee.email,
-      position: employee.position,
-      createdAt: employee.createdAt,
-      employees: subordinates,
-    };
+    return new EmployeeEntity({
+      ...employeeData,
+      employees: subordinates.filter(Boolean),
+    });
   }
 }

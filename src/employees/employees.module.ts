@@ -1,11 +1,18 @@
 import { Module } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
-import { PrismaService } from 'src/prisma/prisma.service';
-import { EmployeesController } from './employees.controller';
+import { PrismaService } from '../prisma/prisma.service';
 import { EmployeesService } from './employees.service';
+import { EmployeeRepository } from './employees.repository';
+import { EmployeesController } from './employees.controller';
+import { JwtService } from '@nestjs/jwt';
 
 @Module({
   controllers: [EmployeesController],
-  providers: [EmployeesService, PrismaService, JwtService],
+  providers: [
+    EmployeesService,
+    EmployeeRepository,
+    PrismaService,
+    JwtService
+  ],
+  exports: [EmployeesService],
 })
 export class EmployeesModule {}

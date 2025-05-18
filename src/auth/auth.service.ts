@@ -4,88 +4,70 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import * as bcrypt from 'bcrypt';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { LoginDto } from './Dtos/login.dto';
 import { CreateUserDto } from './Dtos/user.create.dto';
+import { JwtTokenService } from 'src/helpers/jwt-token.service';
+import { UserEntity } from 'src/helpers/user.entity';
+import { PasswordService } from 'src/helpers/password.service';
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
+    private readonly passwordService: PasswordService,
+    private readonly tokenService: JwtTokenService,
   ) {}
 
-  // ====== Create a new user ======
-  async createUser(data: CreateUserDto) {
-    const user = await this.prisma.employee.findUnique({
+  async createUser(data: CreateUserDto): Promise<UserEntity> {
+    const existingUser = await this.prisma.employee.findUnique({
       where: { email: data.email },
     });
 
-    if (user) {
+    if (existingUser) {
       throw new ConflictException('Employee with this email already exists');
     }
 
-    const hashedPassword = await bcrypt.hash(data.password, 16);
+    const hashedPassword = await this.passwordService.hashPassword(data.password);
     data.password = hashedPassword;
 
-    // Convert manager_id from string to number if it exists
-    const parsedManagerId = data.manager_id
-      ? Number(data.manager_id)
-      : undefined;
+    const managerId = data.manager_id ? Number(data.manager_id) : undefined;
 
-    const createEmployee = await this.prisma.employee.create({
+    const employee = await this.prisma.employee.create({
       data: {
         ...data,
-        manager_id: parsedManagerId, // Ensure it's a number or undefined
+        manager_id: managerId,
       },
     });
 
-    return {
-      id: createEmployee.id,
-      name: createEmployee.name,
-      email: createEmployee.email,
-      position: createEmployee.position,
-      createdAt: createEmployee.createdAt,
-    };
+    return new UserEntity(employee);
   }
 
-  // ======= Login a user and generate a JWT token =======
   async login(data: LoginDto) {
     const user = await this.prisma.employee.findUnique({
       where: { email: data.email },
     });
 
     if (!user) {
-      throw new UnauthorizedException(
-        'You are not registered. Please register first.',
-      );
+      throw new UnauthorizedException('You are not registered. Please register first.');
     }
 
-    const isPasswordValid = await bcrypt.compare(data.password, user.password);
+    const valid = await this.passwordService.comparePassword(data.password, user.password);
 
-    if (!isPasswordValid) {
+    if (!valid) {
       throw new UnauthorizedException('Invalid email or password');
     }
 
-    const payload = {
+    const token = await this.tokenService.generateToken({
       id: user.id,
       email: user.email,
       position: user.position,
-    };
-
-    const token = await this.jwtService.signAsync(payload, {
-      secret: process.env.JWT_SECRET,
-      expiresIn: process.env.JWT_EXPIRATION_TIME,
     });
 
     return {
       access_token: token,
-      user: {
-        id: user.id,
-        email: user.email,
-        position: user.position,
-      },
+      user: new UserEntity(user),
     };
   }
 }
