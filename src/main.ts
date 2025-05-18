@@ -3,6 +3,8 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { WINSTON_MODULE_NEST_PROVIDER, WinstonModule } from 'nest-winston';
+import { winstonConfig } from './logger/winston.config';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -44,6 +46,10 @@ async function bootstrap() {
       // whitelist: true,
     }),
   );
+
+    // Use Winston logger for NestJS internal logs
+  app.useLogger(app.get(WINSTON_MODULE_NEST_PROVIDER));
+
 
   await app.listen(process.env.PORT || 5000);
   console.log(
