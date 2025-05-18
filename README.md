@@ -107,14 +107,14 @@ describe('AuthService', () => {
 });
 
 # Folder Structure
-src/
-  auth/
-  modules/
-test/
-  app.e2e-spec.ts
-  jest-e2e.json
-jest.config.ts
-.env.test
+* src/
+  * auth/
+  * modules/
+* test/
+  * app.e2e-spec.ts
+  * jest-e2e.json
+* jest.config.ts
+* .env.test
 
 ## Run tests
 
@@ -157,9 +157,9 @@ $ cd employee-management-server
 ## 5. Set Environment Variables
 ## Create .env file
 
-* DATABASE_URL=postgresql://user:pass@localhost:5432/yourdb
+* DATABASE_URL=postgresql://user:pass@localhost:5432/database_name
 * JWT_SECRET=your-secret
-* PORT=3000
+* PORT=5000
 
 ## 6. Install & Build
 
